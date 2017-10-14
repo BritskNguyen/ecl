@@ -109,6 +109,7 @@ void Ekf::controlFusionModes()
 			&&  (_R_to_earth(2, 2) > 0.7071f);
 	_ev_data_ready = _ext_vision_buffer.pop_first_older_than(_imu_sample_delayed.time_us, &_ev_sample_delayed);
 	_tas_data_ready = _airspeed_buffer.pop_first_older_than(_imu_sample_delayed.time_us, &_airspeed_sample_delayed);
+	_mocap_data_ready = _mocap_buffer.pop_first_older_than(_imu_sample_delayed.time_us, &_mocap_sample_delayed);	//mq
 
 	// check for height sensor timeouts and reset and change sensor if necessary
 	controlHeightSensorTimeouts();
@@ -122,6 +123,7 @@ void Ekf::controlFusionModes()
 	controlBetaFusion();
 	controlDragFusion();
 	controlHeightFusion();
+	controlMocapFusion();	//mq
 
 	// for efficiency, fusion of direct state observations for position and velocity is performed sequentially
 	// in a single function using sensor data from multiple sources (GPS, external vision, baro, range finder, etc)
@@ -205,7 +207,7 @@ void Ekf::controlExternalVisionFusion()
 
 				ECL_INFO("EKF commencing external vision yaw fusion");
 			}
-		}
+		}             
 
 		// determine if we should use the height observation
 		if (_params.vdist_sensor_type == VDIST_SENSOR_EV) {
@@ -244,6 +246,75 @@ void Ekf::controlExternalVisionFusion()
 			_state.vel.setZero();
 
 		}
+	}
+
+}
+
+
+void Ekf::controlMocapFusion()		//mq
+{
+	if (_mocap_data_ready) {
+
+		if (true && !_control_status.flags.mocap_yaw && _control_status.flags.tilt_align) {		//need to add a param to enable/diable mocap yaw fusion
+			// check for a mocap measurement that has fallen behind the fusion time horizon
+			if (_time_last_imu - _time_last_mocap < 2 * MOCAP_MAX_INTERVAL) {
+				// reset the yaw angle to the value from the observaton quaternion
+				// get the roll, pitch, yaw estimates from the quaternion states
+				Quatf q_init(_state.quat_nominal);
+				Eulerf euler_init(q_init);
+
+				// get initial yaw from the observation quaternion
+				mocapSample mocap_newest = _mocap_buffer.get_newest();
+				Quatf q_obs(mocap_newest.quat);
+				Eulerf euler_obs(q_obs);
+				euler_init(2) = euler_obs(2);
+
+				// save a copy of the quaternion state for later use in calculating the amount of reset change
+				Quatf quat_before_reset = _state.quat_nominal;
+
+				// calculate initial quaternion states for the ekf
+				_state.quat_nominal = Quatf(euler_init);
+
+				// calculate the amount that the quaternion has changed by
+				_state_reset_status.quat_change = _state.quat_nominal * quat_before_reset.inversed();
+
+				// add the reset amount to the output observer buffered data
+				outputSample output_states;
+				unsigned output_length = _output_buffer.get_length();
+				for (unsigned i=0; i < output_length; i++) {
+					output_states = _output_buffer.get_from_index(i);
+					output_states.quat_nominal *= _state_reset_status.quat_change;
+					_output_buffer.push_to_index(i,output_states);
+				}
+
+				// apply the change in attitude quaternion to our newest quaternion estimate
+				// which was already taken out from the output buffer
+				_output_new.quat_nominal *= _state_reset_status.quat_change;
+
+				// capture the reset event
+				_state_reset_status.quat_counter++;
+
+				// flag the yaw as aligned
+				_control_status.flags.yaw_align = true;
+
+				// turn on fusion of external vision yaw measurements and disable all magnetoemter fusion
+				_control_status.flags.mocap_yaw = true;
+				_control_status.flags.ev_yaw = false;
+				_control_status.flags.mag_hdg = false;
+				_control_status.flags.mag_3D = false;
+				_control_status.flags.mag_dec = false;
+
+				ECL_WARN("EKF commencing mocap yaw fusion");
+			}
+		}
+
+		// determine if we should use the yaw observation
+		if (_control_status.flags.mocap_yaw) {
+			fuseHeading();
+		}             
+	}
+	else{
+		//ECL_WARN("EKF mocap yaw fusion NOT YET");
 	}
 
 }

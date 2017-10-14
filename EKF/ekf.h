@@ -249,6 +249,7 @@ private:
 	bool _flow_data_ready{false};
 	bool _ev_data_ready{false};
 	bool _tas_data_ready{false};
+	bool _mocap_data_ready{false}; //mq
 
 	uint64_t _time_last_fake_gps{0};	// last time in us at which we have faked gps measurement for static mode
 
@@ -332,6 +333,7 @@ private:
 	float _rng_filt_state{0.0f};		// filtered height measurement
 	uint32_t _mag_counter{0};		// number of magnetometer samples read during initialisation
 	uint32_t _ev_counter{0};		// number of exgernal vision samples read during initialisation
+	uint32_t _mocap_counter{0};		//mq
 	uint64_t _time_last_mag{0};	// measurement time of last magnetomter sample
 	Vector3f _mag_filt_state;	// filtered magnetometer measurement
 	Vector3f _delVel_sum;		// summed delta velocity
@@ -480,6 +482,9 @@ private:
 
 	// control fusion of external vision observations
 	void controlExternalVisionFusion();
+
+	// Control fusion of Mocap MQ
+	void controlMocapFusion();
 
 	// control fusion of optical flow observtions
 	void controlOpticalFlowFusion();

@@ -81,6 +81,12 @@ struct ext_vision_message {
 	float angErr;     // 1-Sigma angular error (rad)
 };
 
+
+struct mocap_message {				//mq
+	Vector3f posNED;  // measured NED position relative to the local origin (m)
+	Quatf quat;  // measured quaternion orientation defining rotation from NED to body frame
+};
+
 struct outputSample {
 	Quatf  quat_nominal;	// nominal quaternion describing vehicle attitude
 	Vector3f    vel;		// NED velocity estimate in earth frame in m/s
@@ -151,6 +157,13 @@ struct extVisionSample {
 	uint64_t time_us; // timestamp of the measurement in microseconds
 };
 
+struct mocapSample{				//mocap sample added by mq
+
+	Vector3f posNED;  // measured NED position relative to the local origin (m)
+	Quatf quat;  // measured quaternion orientation defining rotation from NED to body frame
+	uint64_t time_us; // timestamp of the measurement in microseconds
+};
+
 struct dragSample {
 	Vector2f accelXY; // measured specific force along the X and Y body axes (m/s**2)
 	uint64_t time_us; // timestamp in microseconds of the measurement
@@ -185,6 +198,7 @@ struct dragSample {
 #define BARO_MAX_INTERVAL	2e5
 #define RNG_MAX_INTERVAL	2e5
 #define EV_MAX_INTERVAL		2e5
+#define MOCAP_MAX_INTERVAL 	2e5		//MQ
 
 // bad accelerometer detection and mitigation
 #define BADACC_PROBATION	10E6	// Number of usec that accel data declared bad must continuously pass checks to be declared good
@@ -205,6 +219,7 @@ struct parameters {
 	float flow_delay_ms{5.0f};		// optical flow measurement delay relative to the IMU (msec) - this is to the middle of the optical flow integration interval
 	float range_delay_ms{5.0f};		// range finder measurement delay relative to the IMU (msec)
 	float ev_delay_ms{100.0f};		// off-board vision measurement delay relative to the IMU (msec)
+	float mocap_delay_ms{50.0f};	//mq mocap measurement delay relative to imu, but not sure(msec)
 
 	// input noise
 	float gyro_noise{1.5e-2f};		// IMU angular rate noise used for covariance prediction (rad/sec)
@@ -413,6 +428,8 @@ union filter_control_status_u {
 		uint32_t fuse_beta   : 1; // 15 - true when synthetic sideslip measurements are being fused
 		uint32_t update_mag_states_only   : 1; // 16 - true when only the magnetometer states are updated by the magnetometer
 		uint32_t fixed_wing  : 1; // 17 - true when the vehicle is operating as a fixed wing vehicle
+		uint32_t mocap_yaw	 : 1; // 18 -true when using mocap yaw for heading fusion, mq
+		uint32_t mocap_pos	 : 1; // 19 - true when using mocap local position for fusion, mq
 	} flags;
 	uint32_t value;
 };

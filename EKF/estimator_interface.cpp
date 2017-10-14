@@ -348,6 +348,28 @@ void EstimatorInterface::setExtVisionData(uint64_t time_usec, ext_vision_message
 	}
 }
 
+void EstimatorInterface::setMocapData(uint64_t time_usec, mocap_message *mocap)		//mocap vicon mq
+{
+	if (!_initialised) {
+		return;
+	}
+
+	// limit data rate to prevent data being lost
+	if (time_usec - _time_last_mocap > _min_obs_interval_us) {
+		mocapSample mocap_sample_new;
+		// calculate the system time-stamp for the mid point of the integration period
+		mocap_sample_new.time_us = time_usec - _params.mocap_delay_ms * 1000;		//delay is not certain mq
+		// copy required data
+		mocap_sample_new.quat = mocap->quat;
+		mocap_sample_new.posNED = mocap->posNED;
+		// record time for comparison next measurement
+		_time_last_mocap = time_usec;
+		// push to buffer
+		_mocap_buffer.push(mocap_sample_new);
+	}
+
+}
+
 bool EstimatorInterface::initialise_interface(uint64_t timestamp)
 {
 	// find the maximum time delay the buffers are required to handle
@@ -379,6 +401,7 @@ bool EstimatorInterface::initialise_interface(uint64_t timestamp)
 	      _airspeed_buffer.allocate(_obs_buffer_length) &&
 	      _flow_buffer.allocate(_obs_buffer_length) &&
 	      _ext_vision_buffer.allocate(_obs_buffer_length) &&
+	      _mocap_buffer.allocate(_obs_buffer_length) &&		//mq
 	      _drag_buffer.allocate(_obs_buffer_length) &&
 	      _output_buffer.allocate(_imu_buffer_length) &&
 	      _output_vert_buffer.allocate(_imu_buffer_length))) {
@@ -405,6 +428,8 @@ bool EstimatorInterface::initialise_interface(uint64_t timestamp)
 		_ext_vision_buffer.push(ext_vision_sample_init);
 		dragSample drag_sample_init = {};
 		_drag_buffer.push(drag_sample_init);
+		mocapSample mocap_sample_init = {};		//mq
+		_mocap_buffer.push(mocap_sample_init);
 	}
 
 	// zero the data in the imu data and output observer state buffers
@@ -451,6 +476,7 @@ void EstimatorInterface::unallocate_buffers()
 	_ext_vision_buffer.unallocate();
 	_output_buffer.unallocate();
 	_output_vert_buffer.unallocate();
+	_mocap_buffer.unallocate();	//mq
 
 }
 

@@ -475,7 +475,12 @@ void Ekf::fuseHeading()
 			Dcmf R_to_earth_ev(_ev_sample_delayed.quat);	// transformation matrix from body to world frame
 			// calculate the yaw angle for a 312 sequence
 			measured_hdg = atan2f(R_to_earth_ev(1, 0) , R_to_earth_ev(0, 0));
-		} else {
+		}else if(_control_status.flags.mocap_yaw){		//mq
+			// convert the observed quaternion to a rotation matrix
+			Dcmf R_to_earth_mocap(_mocap_sample_delayed.quat);	// transformation matrix from body to world frame
+			// calculate the yaw angle for a 312 sequence
+			measured_hdg = atan2f(R_to_earth_mocap(1, 0) , R_to_earth_mocap(0, 0));		 
+		}else {
 			// there is no yaw observation
 			return;
 		}
@@ -553,7 +558,12 @@ void Ekf::fuseHeading()
 			Dcmf R_to_earth_ev(_ev_sample_delayed.quat);	// transformation matrix from body to world frame
 			// calculate the yaw angle for a 312 sequence
 			measured_hdg = atan2f(-R_to_earth_ev(0, 1) , R_to_earth_ev(1, 1));
-		} else {
+		} else if (_control_status.flags.mocap_yaw){
+			// convert the observed quaternion to a rotation matrix
+			Dcmf R_to_earth_mocap(_mocap_sample_delayed.quat);	// transformation matrix from body to world frame
+			// calculate the yaw angle for a 312 sequence
+			measured_hdg = atan2f(-R_to_earth_mocap(0, 1) , R_to_earth_mocap(1, 1));			
+		}else {
 			// there is no yaw observation
 			return;
 		}
@@ -566,7 +576,10 @@ void Ekf::fuseHeading()
 	} else if (_control_status.flags.ev_yaw) {
 		// using error estimate from external vision data
 		R_YAW = sq(fmaxf(_ev_sample_delayed.angErr, 1.0e-2f));
-	} else {
+	} else if (_control_status.flags.mocap_yaw) {		//yaw angle variance to be determined for mocap, mq
+		// using error estimate from external vision data
+		R_YAW = sq(fmaxf(0.03, 1.0e-2f));	
+	}else {
 		// there is no yaw observation
 		return;
 	}

@@ -198,6 +198,18 @@ bool Ekf::initialiseFilter()
 		}
 	}
 
+		// Count the number of mocap measurements received, mq
+	if (_mocap_buffer.pop_first_older_than(_imu_sample_delayed.time_us, &_mocap_sample_delayed)) {
+		if ((_mocap_counter == 0) && (_mocap_sample_delayed.time_us != 0)) {
+			// initialise the counter
+			_mocap_counter = 1;
+
+		} else if ((_mocap_counter != 0) && (_mocap_sample_delayed.time_us != 0)) {
+			// increment the sample count
+			_mocap_counter ++;
+		}
+	}
+
 	// set the default height source from the adjustable parameter
 	if (_hgt_counter == 0) {
 		_primary_hgt_source = _params.vdist_sensor_type;

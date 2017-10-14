@@ -174,6 +174,9 @@ public:
 	// set external vision position and attitude data
 	void setExtVisionData(uint64_t time_usec, ext_vision_message *evdata);
 
+	//set mocap vicon data mq
+	void setMocapData(uint64_t time_usec, mocap_message *mocap);
+
 	// return a address to the parameters struct
 	// in order to give access to the application
 	parameters *getParamHandle() {return &_params;}
@@ -334,6 +337,7 @@ protected:
 	extVisionSample _ev_sample_delayed{};
 	dragSample _drag_sample_delayed{};
 	dragSample _drag_down_sampled{};	// down sampled drag specific force data (filter prediction rate -> observation rate)
+	mocapSample _mocap_sample_delayed{};	//mq
 
 	// Used by the multi-rotor specific drag force fusion
 	uint8_t _drag_sample_count{0};	// number of drag specific force samples assumulated at the filter prediction rate
@@ -394,6 +398,7 @@ protected:
 	RingBuffer<outputSample> _output_buffer;
 	RingBuffer<outputVert> _output_vert_buffer;
 	RingBuffer<dragSample> _drag_buffer;
+	RingBuffer<mocapSample> _mocap_buffer;	//mq
 
 	uint64_t _time_last_imu{0};	// timestamp of last imu sample in microseconds
 	uint64_t _time_last_gps{0};	// timestamp of last gps measurement in microseconds
@@ -403,6 +408,7 @@ protected:
 	uint64_t _time_last_airspeed{0};	// timestamp of last airspeed measurement in microseconds
 	uint64_t _time_last_ext_vision{0}; // timestamp of last external vision measurement in microseconds
 	uint64_t _time_last_optflow{0};
+	uint64_t _time_last_mocap{0}; //mq
 
 	fault_status_u _fault_status{};
 
