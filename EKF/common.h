@@ -285,6 +285,9 @@ struct parameters {
 	// vision position fusion
 	float ev_innov_gate{5.0f};		// vision estimator fusion innovation consistency gate size (STD)
 
+	// mocap fusion mq
+	float mocap_innov_gate{5.0f};
+	
 	// optical flow fusion
 	float flow_noise{0.15f};		// observation noise for optical flow LOS rate measurements (rad/sec)
 	float flow_noise_qual_min{0.5f};	// observation noise for optical flow LOS rate measurements when flow sensor quality is at the minimum useable (rad/sec)
@@ -430,6 +433,7 @@ union filter_control_status_u {
 		uint32_t fixed_wing  : 1; // 17 - true when the vehicle is operating as a fixed wing vehicle
 		uint32_t mocap_yaw	 : 1; // 18 -true when using mocap yaw for heading fusion, mq
 		uint32_t mocap_pos	 : 1; // 19 - true when using mocap local position for fusion, mq
+		uint32_t mocap_hgt	 : 1; // 20  - true when using mocap local altitude for fusion, mq
 	} flags;
 	uint32_t value;
 };

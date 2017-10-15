@@ -1333,6 +1333,7 @@ void Ekf::setControlBaroHeight()
 	_control_status.flags.gps_hgt = false;
 	_control_status.flags.rng_hgt = false;
 	_control_status.flags.ev_hgt = false;
+	_control_status.flags.mocap_hgt = false;	//mq
 }
 
 void Ekf::setControlRangeHeight()
@@ -1342,6 +1343,7 @@ void Ekf::setControlRangeHeight()
 	_control_status.flags.baro_hgt = false;
 	_control_status.flags.gps_hgt = false;
 	_control_status.flags.ev_hgt = false;
+	_control_status.flags.mocap_hgt = false;	//mq
 }
 
 void Ekf::setControlGPSHeight()
@@ -1351,6 +1353,7 @@ void Ekf::setControlGPSHeight()
 	_control_status.flags.baro_hgt = false;
 	_control_status.flags.rng_hgt = false;
 	_control_status.flags.ev_hgt = false;
+	_control_status.flags.mocap_hgt = false;	//mq
 }
 
 void Ekf::setControlEVHeight()
@@ -1360,4 +1363,16 @@ void Ekf::setControlEVHeight()
 	_control_status.flags.baro_hgt = false;
 	_control_status.flags.gps_hgt = false;
 	_control_status.flags.rng_hgt = false;
+	_control_status.flags.mocap_hgt = false;	//mq
+}
+
+void Ekf::setControlMocapHeight()		//mq
+{
+	_control_status.flags.mocap_hgt = true;
+
+	_control_status.flags.baro_hgt = false;
+	_control_status.flags.gps_hgt = false;
+	_control_status.flags.rng_hgt = false;
+	_control_status.flags.ev_hgt = false;	//mq
+
 }

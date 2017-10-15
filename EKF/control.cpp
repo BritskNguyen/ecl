@@ -122,8 +122,9 @@ void Ekf::controlFusionModes()
 	controlAirDataFusion();
 	controlBetaFusion();
 	controlDragFusion();
-	controlHeightFusion();
 	controlMocapFusion();	//mq
+	controlHeightFusion();
+
 
 	// for efficiency, fusion of direct state observations for position and velocity is performed sequentially
 	// in a single function using sensor data from multiple sources (GPS, external vision, baro, range finder, etc)
@@ -255,6 +256,22 @@ void Ekf::controlMocapFusion()		//mq
 {
 	if (_mocap_data_ready) {
 
+		// mocap position aiding selection logic
+		if ((true) && !_control_status.flags.mocap_pos && _control_status.flags.tilt_align && _control_status.flags.yaw_align) {	//need to add a param to enable/diable mocap position fusion
+			// check for a exernal vision measurement that has fallen behind the fusion time horizon
+			if (_time_last_imu - _time_last_mocap < 2 * MOCAP_MAX_INTERVAL) {
+				// turn on use of external vision measurements for position and height
+				setControlMocapHeight();		//set mocap_hgt to be true
+				ECL_INFO("EKF commencing mocap position fusion");
+				// reset the position, height and velocity
+				resetPosition();
+				resetVelocity();
+				resetHeight();
+				_control_status.flags.mocap_pos=true;
+			}
+		}
+
+
 		if (true && !_control_status.flags.mocap_yaw && _control_status.flags.tilt_align) {		//need to add a param to enable/diable mocap yaw fusion
 			// check for a mocap measurement that has fallen behind the fusion time horizon
 			if (_time_last_imu - _time_last_mocap < 2 * MOCAP_MAX_INTERVAL) {
@@ -311,11 +328,42 @@ void Ekf::controlMocapFusion()		//mq
 		// determine if we should use the yaw observation
 		if (_control_status.flags.mocap_yaw) {
 			fuseHeading();
+		}
+
+		// determine if we should use the height observation
+		if (true) {			//need a param to determine using height observation
+			setControlMocapHeight();
+			_fuse_height = true;
+
+		}
+
+		// determine if we should use the horizontal position observations
+		if (_control_status.flags.mocap_pos) {
+			_fuse_pos = true;
+
+			// // correct position and height for offset relative to IMU
+			// Vector3f pos_offset_body = _params.ev_pos_body - _params.imu_pos_body;
+			// Vector3f pos_offset_earth = _R_to_earth * pos_offset_body;
+			// _ev_sample_delayed.posNED(0) -= pos_offset_earth(0);
+			// _ev_sample_delayed.posNED(1) -= pos_offset_earth(1);
+			// _ev_sample_delayed.posNED(2) -= pos_offset_earth(2);
 		}             
 	}
-	else{
-		//ECL_WARN("EKF mocap yaw fusion NOT YET");
+
+	// handle the case when we are relying on mocap data and lose it
+	if (_control_status.flags.mocap_pos && !_control_status.flags.gps && !_control_status.flags.opt_flow) {
+		// We are relying on ev aiding to constrain drift so after 5s without aiding we need to do something
+		if ((_time_last_imu - _time_last_pos_fuse > 5e6)) {
+			// Switch to the non-aiding mode, zero the velocity states
+			// and set the synthetic position to the current estimate
+			_control_status.flags.mocap_pos = false;
+			_last_known_posNE(0) = _state.pos(0);
+			_last_known_posNE(1) = _state.pos(1);
+			_state.vel.setZero();
+
+		}
 	}
+
 
 }
 
@@ -772,6 +820,48 @@ void Ekf::controlHeightSensorTimeouts()
 			}
 		}
 
+		// handle the case where we are using mocap data for height  mq
+		if (_control_status.flags.mocap_hgt) {
+			// check if mocap data is available
+			mocapSample mocap_init = _mocap_buffer.get_newest();
+			bool mocap_data_available = ((_time_last_imu - mocap_init.time_us) < 2 * MOCAP_MAX_INTERVAL);
+
+			// check if baro data is available
+			baroSample baro_init = _baro_buffer.get_newest();
+			bool baro_data_available = ((_time_last_imu - baro_init.time_us) < 2 * BARO_MAX_INTERVAL);
+
+			// reset to baro if we have no vision data and baro data is available
+			bool reset_to_baro = !mocap_data_available && baro_data_available;
+
+			// reset to ev data if it is available
+			bool reset_to_mocap = mocap_data_available;
+
+			if (reset_to_baro) {
+				// set height sensor health
+				_baro_hgt_faulty = false;
+
+				// reset the height mode
+				setControlBaroHeight();
+
+				// request a reset
+				reset_height = true;
+				ECL_WARN("EKF mocap hgt timeout - reset to baro");
+
+			} else if (reset_to_mocap) {
+				// reset the height mode
+				setControlMocapHeight();
+
+				// request a reset
+				reset_height = true;
+				ECL_WARN("EKF mocap hgt timeout - reset to mocap hgt");
+
+			} else {
+				// we have nothing to reset to
+				reset_height = false;
+
+			}
+		}
+
 		// Reset vertical position and velocity states to the last measurement
 		if (reset_height) {
 			resetHeight();
@@ -1090,6 +1180,10 @@ void Ekf::controlMagFusion()
 		return;
 	}
 
+	if (_control_status.flags.mocap_yaw) {		//mq
+		return;
+	}
+
 	// If we are on ground, store the local position and time to use as a reference
 	// Also reset the flight alignment flag so that the mag fields will be re-initialised next time we achieve flight altitude
 	if (!_control_status.flags.in_air) {
@@ -1249,7 +1343,7 @@ void Ekf::controlVelPosFusion()
 {
 	// if we aren't doing any aiding, fake GPS measurements at the last known position to constrain drift
 	// Coincide fake measurements with baro data for efficiency with a minimum fusion rate of 5Hz
-	if (!_control_status.flags.gps && !_control_status.flags.opt_flow && !_control_status.flags.ev_pos
+	if (!_control_status.flags.gps && !_control_status.flags.opt_flow && !_control_status.flags.ev_pos && !_control_status.flags.mocap_pos
 	    && ((_time_last_imu - _time_last_fake_gps > 2e5) || _fuse_height)) {
 		_fuse_pos = true;
 		_time_last_fake_gps = _time_last_imu;

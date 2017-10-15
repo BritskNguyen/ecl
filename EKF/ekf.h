@@ -539,6 +539,8 @@ private:
 	// set control flags to use external vision height
 	void setControlEVHeight();
 
+	void setControlMocapHeight(); 	//mq
+
 	// zero the specified range of rows in the state covariance matrix
 	void zeroRows(float (&cov_mat)[_k_num_states][_k_num_states], uint8_t first, uint8_t last);
 

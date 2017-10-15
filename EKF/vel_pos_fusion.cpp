@@ -107,6 +107,15 @@ void Ekf::fuseVelPosHeight()
 			// innovation gate size
 			gate_size[3] = fmaxf(_params.ev_innov_gate, 1.0f);
 
+		} else if (_control_status.flags.mocap_pos) {		//mq
+			// we are using external vision measurements
+			R[3] = fmaxf(0.005f, 0.01f);
+			_vel_pos_innov[3] = _state.pos(0) - _mocap_sample_delayed.posNED(0);
+			_vel_pos_innov[4] = _state.pos(1) - _mocap_sample_delayed.posNED(1);
+
+			// innovation gate size
+			gate_size[3] = fmaxf(_params.mocap_innov_gate, 1.0f);
+
 		} else {
 			// No observations - use a static position to constrain drift
 			if (_control_status.flags.in_air && _control_status.flags.tilt_align) {
@@ -173,6 +182,16 @@ void Ekf::fuseVelPosHeight()
 			R[5] = R[5] * R[5];
 			// innovation gate size
 			gate_size[5] = fmaxf(_params.ev_innov_gate, 1.0f);
+
+		} else if (_control_status.flags.mocap_hgt) {		//mq
+			fuse_map[5] = true;
+			// calculate the innovation assuming the external vision observaton is in local NED frame
+			_vel_pos_innov[5] = _state.pos(2) - _mocap_sample_delayed.posNED(2);
+			// observation variance - defined externally
+			R[5] = fmaxf(0.005f, 0.01f);	//position covariance for vicon, need a param
+			R[5] = R[5] * R[5];
+			// innovation gate size
+			gate_size[5] = fmaxf(_params.mocap_innov_gate, 1.0f);
 		}
 
 	}
