@@ -110,6 +110,7 @@ void Ekf::controlFusionModes()
 	_ev_data_ready = _ext_vision_buffer.pop_first_older_than(_imu_sample_delayed.time_us, &_ev_sample_delayed);
 	_tas_data_ready = _airspeed_buffer.pop_first_older_than(_imu_sample_delayed.time_us, &_airspeed_sample_delayed);
 	_mocap_data_ready = _mocap_buffer.pop_first_older_than(_imu_sample_delayed.time_us, &_mocap_sample_delayed);	//mq
+	_uwb_data_ready = _uwb_buffer.pop_first_older_than(_imu_sample_delayed.time_us, &_uwb_sample_delayed);	//mq
 
 	// check for height sensor timeouts and reset and change sensor if necessary
 	controlHeightSensorTimeouts();
@@ -123,13 +124,14 @@ void Ekf::controlFusionModes()
 	controlBetaFusion();
 	controlDragFusion();
 	controlMocapFusion();	//mq
+	controlUwbFusion();	//mq
 	controlHeightFusion();
 
 
 	// for efficiency, fusion of direct state observations for position and velocity is performed sequentially
 	// in a single function using sensor data from multiple sources (GPS, external vision, baro, range finder, etc)
 	controlVelPosFusion();
-
+	
 	// report dead reckoning if we are no longer fusing measurements that constrain velocity drift
 	_is_dead_reckoning = (_time_last_imu - _time_last_pos_fuse > _params.no_aid_timeout_max)
 			&& (_time_last_imu - _time_last_vel_fuse > _params.no_aid_timeout_max)
@@ -257,7 +259,7 @@ void Ekf::controlMocapFusion()		//mq
 	if (_mocap_data_ready) {
 
 		// mocap position aiding selection logic
-		if ((true) && !_control_status.flags.mocap_pos && _control_status.flags.tilt_align && _control_status.flags.yaw_align) {	//need to add a param to enable/diable mocap position fusion
+		if ((_params.fuse_mocap_pos) && !_control_status.flags.mocap_pos && _control_status.flags.tilt_align && _control_status.flags.yaw_align) {	//need to add a param to enable/diable mocap position fusion
 			// check for a exernal vision measurement that has fallen behind the fusion time horizon
 			if (_time_last_imu - _time_last_mocap < 2 * MOCAP_MAX_INTERVAL) {
 				// turn on use of external vision measurements for position and height
@@ -272,7 +274,7 @@ void Ekf::controlMocapFusion()		//mq
 		}
 
 
-		if (true && !_control_status.flags.mocap_yaw && _control_status.flags.tilt_align) {		//need to add a param to enable/diable mocap yaw fusion
+		if (_params.fuse_mocap_yaw && !_control_status.flags.mocap_yaw && _control_status.flags.tilt_align) {		//need to add a param to enable/diable mocap yaw fusion
 			// check for a mocap measurement that has fallen behind the fusion time horizon
 			if (_time_last_imu - _time_last_mocap < 2 * MOCAP_MAX_INTERVAL) {
 				// reset the yaw angle to the value from the observaton quaternion
@@ -326,19 +328,19 @@ void Ekf::controlMocapFusion()		//mq
 		}
 
 		// determine if we should use the yaw observation
-		if (_control_status.flags.mocap_yaw) {
+		if (_params.fuse_mocap_yaw && _control_status.flags.mocap_yaw) {
 			fuseHeading();
 		}
 
 		// determine if we should use the height observation
-		if (true) {			//need a param to determine using height observation
+		if (_params.fuse_mocap_pos) {			//need a param to determine using height observation
 			setControlMocapHeight();
 			_fuse_height = true;
 
 		}
 
 		// determine if we should use the horizontal position observations
-		if (_control_status.flags.mocap_pos) {
+		if (_params.fuse_mocap_pos && _control_status.flags.mocap_pos) {
 			_fuse_pos = true;
 
 			// // correct position and height for offset relative to IMU
@@ -364,6 +366,50 @@ void Ekf::controlMocapFusion()		//mq
 		}
 	}
 
+
+}
+
+void Ekf::controlUwbFusion()		//mq
+
+{
+	if (_uwb_data_ready) {
+
+		// mocap position aiding selection logic
+		if ((_params.fuse_uwb) && !_control_status.flags.uwb_dist && _control_status.flags.tilt_align && _control_status.flags.yaw_align) {	//need to add a param to enable/diable uwb fusion
+			// check for a exernal vision measurement that has fallen behind the fusion time horizon
+			if (_time_last_imu - _time_last_uwb < 2 * UWB_MAX_INTERVAL) {
+				// turn on use of external vision measurements for position and height
+				ECL_INFO("EKF commencing UWB position fusion");
+				// reset the position, height and velocity
+				resetPosition();
+				resetVelocity();
+				resetHeight();
+				_control_status.flags.uwb_dist=true;
+			}
+		}
+	}
+
+	// handle the case when we are relying on uwb data and lose it
+	if (_control_status.flags.uwb_dist && !_control_status.flags.gps && !_control_status.flags.opt_flow && !_control_status.flags.mocap_pos && !_control_status.flags.ev_pos) {
+		// We are relying on uwb aiding to constrain drift so after 1s without aiding we need to do something
+		if ((_time_last_imu - _time_last_pos_fuse > 1e6)) {
+			// Switch to the non-aiding mode, zero the velocity states
+			// and set the synthetic position to the current estimate
+			_control_status.flags.uwb_dist = false;
+			_last_known_posNE(0) = _state.pos(0);
+			_last_known_posNE(1) = _state.pos(1);
+			_state.vel.setZero();
+			setControlBaroHeight();		//fall back to baro height
+			resetHeight();				//reset height
+
+		}
+	}
+
+	if (_params.fuse_uwb && _control_status.flags.uwb_dist)
+	{	_fuse_dist = true;
+		setControlUwbHeight(); //use uwb for height estimation, disable all others
+		fuseUwbDistance();
+	}
 
 }
 

@@ -87,6 +87,12 @@ struct mocap_message {				//mq
 	Quatf quat;  // measured quaternion orientation defining rotation from NED to body frame
 };
 
+struct uwb_message{ 			//mq
+	Vector3f uwbancNED;
+	Vector3f uwbAntBody;
+	float uwbDist;
+};
+
 struct outputSample {
 	Quatf  quat_nominal;	// nominal quaternion describing vehicle attitude
 	Vector3f    vel;		// NED velocity estimate in earth frame in m/s
@@ -164,6 +170,14 @@ struct mocapSample{				//mocap sample added by mq
 	uint64_t time_us; // timestamp of the measurement in microseconds
 };
 
+struct uwbSample{				//mocap sample added by mq
+
+	Vector3f uwbancNED;			//in m
+	Vector3f uwbAntBody;		//in m
+	float uwbDist;				//in m
+	uint64_t time_us; // timestamp of the measurement in microseconds
+};
+
 struct dragSample {
 	Vector2f accelXY; // measured specific force along the X and Y body axes (m/s**2)
 	uint64_t time_us; // timestamp in microseconds of the measurement
@@ -199,6 +213,7 @@ struct dragSample {
 #define RNG_MAX_INTERVAL	2e5
 #define EV_MAX_INTERVAL		2e5
 #define MOCAP_MAX_INTERVAL 	2e5		//MQ
+#define UWB_MAX_INTERVAL    2e5 	//MQ
 
 // bad accelerometer detection and mitigation
 #define BADACC_PROBATION	10E6	// Number of usec that accel data declared bad must continuously pass checks to be declared good
@@ -220,6 +235,7 @@ struct parameters {
 	float range_delay_ms{5.0f};		// range finder measurement delay relative to the IMU (msec)
 	float ev_delay_ms{100.0f};		// off-board vision measurement delay relative to the IMU (msec)
 	float mocap_delay_ms{50.0f};	//mq mocap measurement delay relative to imu, but not sure(msec)
+	float uwb_delay_ms{50.0f};		//mq
 
 	// input noise
 	float gyro_noise{1.5e-2f};		// IMU angular rate noise used for covariance prediction (rad/sec)
@@ -287,7 +303,8 @@ struct parameters {
 
 	// mocap fusion mq
 	float mocap_innov_gate{5.0f};
-	
+	float uwb_innov_gate{5.0f};
+
 	// optical flow fusion
 	float flow_noise{0.15f};		// observation noise for optical flow LOS rate measurements (rad/sec)
 	float flow_noise_qual_min{0.5f};	// observation noise for optical flow LOS rate measurements when flow sensor quality is at the minimum useable (rad/sec)
@@ -312,6 +329,10 @@ struct parameters {
 	Vector3f rng_pos_body;			// xyz position of range sensor in body frame (m)
 	Vector3f flow_pos_body;			// xyz position of range sensor focal point in body frame (m)
 	Vector3f ev_pos_body;			// xyz position of VI-sensor focal point in body frame (m)
+
+	int32_t fuse_mocap_pos{0};		//mq
+	int32_t fuse_mocap_yaw{0};		//mq
+	int32_t fuse_uwb{0};			//mq
 
 	// output complementary filter tuning
 	float vel_Tau{0.25f};			// velocity state correction time constant (1/sec)
@@ -434,6 +455,7 @@ union filter_control_status_u {
 		uint32_t mocap_yaw	 : 1; // 18 -true when using mocap yaw for heading fusion, mq
 		uint32_t mocap_pos	 : 1; // 19 - true when using mocap local position for fusion, mq
 		uint32_t mocap_hgt	 : 1; // 20  - true when using mocap local altitude for fusion, mq
+		uint32_t uwb_dist	 : 1; //21 mq
 	} flags;
 	uint32_t value;
 };

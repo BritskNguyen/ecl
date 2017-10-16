@@ -1090,6 +1090,71 @@ void Ekf::fuse(float *K, float innovation)
 	}
 }
 
+void Ekf::fuseforUwb(float *K, float innovation)	//mq
+{
+
+	for (unsigned i = 0; i < 4; i++) {
+	_state.quat_nominal(i) = _state.quat_nominal(i) + K[i] * innovation;
+	}
+
+	_state.quat_nominal.normalize();
+
+	for (unsigned i = 0; i < 3; i++) {			//not updating z vel and pos yet mq
+		_state.vel(i) = _state.vel(i) + K[i + 4] * innovation;
+		_state.pos(i) = _state.pos(i) + K[i + 7] * innovation;
+	}
+
+	for (unsigned i = 0; i < 3; i++) {
+		_state.gyro_bias(i) = _state.gyro_bias(i) + K[i + 10] * innovation;
+	}
+
+	for (unsigned i = 0; i < 3; i++) {
+		_state.accel_bias(i) = _state.accel_bias(i) + K[i + 13] * innovation;
+	}
+
+	for (unsigned i = 0; i < 3; i++) {
+		_state.mag_I(i) = _state.mag_I(i) + K[i + 16] * innovation;
+	}
+
+	for (unsigned i = 0; i < 3; i++) {
+		_state.mag_B(i) = _state.mag_B(i) + K[i + 19] * innovation;
+	}
+
+	for (unsigned i = 0; i < 2; i++) {
+		_state.wind_vel(i) = _state.wind_vel(i) + K[i + 22] * innovation;
+	}
+
+    // // Don't update Z accel bias state unless using a height observation (GPS velocities can be biased)
+    // //K[13] = 0;
+
+    // // Split to fuse altitude first, if flip, revert to prediction and dont fuse z velocity.
+    
+    // // check if z update is positive
+    // float state_temp = _state.pos(2) + K[9] * innovation;
+    // if (state_temp > - 0.001f)
+    // {
+    //     _state.pos(2) = -fabsf(state_temp); // flip z estimate to negative (NED)
+    // }
+    // else
+    // {
+    //     _state.vel(2) = _state.vel(2) + K[6] * innovation; // else update as usual
+    //     _state.pos(2) = state_temp; // update as usual
+    // }
+
+    // if (!(fabsf(_state.pos(2)) < 0.05f && _state.vel(2) > 0.0f && _state.vel(2) < 0.05f) )
+    // {
+    //     //update vz bias as usual if not within set bounds above and leave vz updated
+    //     //states[13] = states[13] + Kfusion[13] * distInnov;
+    // }
+    // else
+    // {
+    //     //if within the bounds stated above dont update bias and set vz to 0
+    //     _state.vel(2) = 0.0f;//-fabsf(states[6]);
+    // }
+
+
+}
+
 // zero specified range of rows in the state covariance matrix
 void Ekf::zeroRows(float (&cov_mat)[_k_num_states][_k_num_states], uint8_t first, uint8_t last)
 {
@@ -1369,6 +1434,17 @@ void Ekf::setControlEVHeight()
 void Ekf::setControlMocapHeight()		//mq
 {
 	_control_status.flags.mocap_hgt = true;
+
+	_control_status.flags.baro_hgt = false;
+	_control_status.flags.gps_hgt = false;
+	_control_status.flags.rng_hgt = false;
+	_control_status.flags.ev_hgt = false;	//mq
+
+}
+
+void Ekf::setControlUwbHeight()		//mq
+{
+	_control_status.flags.mocap_hgt = false;
 
 	_control_status.flags.baro_hgt = false;
 	_control_status.flags.gps_hgt = false;

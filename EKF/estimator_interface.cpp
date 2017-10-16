@@ -370,6 +370,29 @@ void EstimatorInterface::setMocapData(uint64_t time_usec, mocap_message *mocap)	
 
 }
 
+void EstimatorInterface::setUwbData(uint64_t time_usec, uwb_message *uwb)		//uwb mq
+{
+	if (!_initialised) {
+		return;
+	}
+
+	// limit data rate to prevent data being lost
+	if (time_usec - _time_last_uwb > _min_obs_interval_us) {
+		uwbSample uwb_sample_new;
+		// calculate the system time-stamp for the mid point of the integration period
+		uwb_sample_new.time_us = time_usec - _params.uwb_delay_ms * 1000;		//delay is not certain mq
+		// copy required data
+		uwb_sample_new.uwbancNED = uwb->uwbancNED;
+		uwb_sample_new.uwbAntBody = uwb->uwbAntBody;
+		uwb_sample_new.uwbDist = uwb->uwbDist;
+		// record time for comparison next measurement
+		_time_last_uwb = time_usec;
+		// push to buffer
+		_uwb_buffer.push(uwb_sample_new);
+	}
+
+}
+
 bool EstimatorInterface::initialise_interface(uint64_t timestamp)
 {
 	// find the maximum time delay the buffers are required to handle
@@ -402,6 +425,7 @@ bool EstimatorInterface::initialise_interface(uint64_t timestamp)
 	      _flow_buffer.allocate(_obs_buffer_length) &&
 	      _ext_vision_buffer.allocate(_obs_buffer_length) &&
 	      _mocap_buffer.allocate(_obs_buffer_length) &&		//mq
+	      _uwb_buffer.allocate(_obs_buffer_length) &&		//mq
 	      _drag_buffer.allocate(_obs_buffer_length) &&
 	      _output_buffer.allocate(_imu_buffer_length) &&
 	      _output_vert_buffer.allocate(_imu_buffer_length))) {
@@ -430,6 +454,8 @@ bool EstimatorInterface::initialise_interface(uint64_t timestamp)
 		_drag_buffer.push(drag_sample_init);
 		mocapSample mocap_sample_init = {};		//mq
 		_mocap_buffer.push(mocap_sample_init);
+		uwbSample uwb_sample_init = {};		//mq
+		_uwb_buffer.push(uwb_sample_init);
 	}
 
 	// zero the data in the imu data and output observer state buffers
@@ -477,6 +503,7 @@ void EstimatorInterface::unallocate_buffers()
 	_output_buffer.unallocate();
 	_output_vert_buffer.unallocate();
 	_mocap_buffer.unallocate();	//mq
+	_uwb_buffer.unallocate(); //mq
 
 }
 
@@ -485,6 +512,7 @@ bool EstimatorInterface::local_position_is_valid()
 	// return true if the position estimate is valid
 	return (((_time_last_imu - _time_last_optflow) < 5e6) && _control_status.flags.opt_flow) || 
 		   (((_time_last_imu - _time_last_mocap) < 5e6) && _control_status.flags.mocap_pos)||	//mq
+		   (((_time_last_imu - _time_last_uwb) < 5e6) && _control_status.flags.uwb_dist)||	//mq
 	       (((_time_last_imu - _time_last_ext_vision) < 5e6) && _control_status.flags.ev_pos) ||
 	       global_position_is_valid();
 }

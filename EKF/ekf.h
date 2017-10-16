@@ -240,6 +240,7 @@ private:
 	bool _fuse_pos{false};			// gps position data should be fused
 	bool _fuse_hor_vel{false};		// gps horizontal velocity measurement should be fused
 	bool _fuse_vert_vel{false};		// gps vertical velocity measurement should be fused
+	bool _fuse_dist{false};		//mq
 
 	// booleans true when fresh sensor data is available at the fusion time horizon
 	bool _gps_data_ready{false};
@@ -250,6 +251,7 @@ private:
 	bool _ev_data_ready{false};
 	bool _tas_data_ready{false};
 	bool _mocap_data_ready{false}; //mq
+	bool _uwb_data_ready{false};	//mq
 
 	uint64_t _time_last_fake_gps{0};	// last time in us at which we have faked gps measurement for static mode
 
@@ -334,6 +336,7 @@ private:
 	uint32_t _mag_counter{0};		// number of magnetometer samples read during initialisation
 	uint32_t _ev_counter{0};		// number of exgernal vision samples read during initialisation
 	uint32_t _mocap_counter{0};		//mq
+	uint32_t _uwb_counter{0};		//mq
 	uint64_t _time_last_mag{0};	// measurement time of last magnetomter sample
 	Vector3f _mag_filt_state;	// filtered magnetometer measurement
 	Vector3f _delVel_sum;		// summed delta velocity
@@ -419,6 +422,8 @@ private:
 	// fuse velocity and position measurements (also barometer height)
 	void fuseVelPosHeight();
 
+	void fuseUwbDistance();	//mq
+
 	// reset velocity states of the ekf
 	bool resetVelocity();
 
@@ -471,6 +476,8 @@ private:
 	// and a scalar innovation value
 	void fuse(float *K, float innovation);
 
+	void fuseforUwb(float *K, float innovation);	//mq
+
 	// calculate the earth rotation vector from a given latitude
 	void calcEarthRateNED(Vector3f &omega, double lat_rad) const;
 
@@ -485,6 +492,8 @@ private:
 
 	// Control fusion of Mocap MQ
 	void controlMocapFusion();
+
+	void controlUwbFusion();//mq
 
 	// control fusion of optical flow observtions
 	void controlOpticalFlowFusion();
@@ -540,6 +549,8 @@ private:
 	void setControlEVHeight();
 
 	void setControlMocapHeight(); 	//mq
+
+	void setControlUwbHeight();		//mq
 
 	// zero the specified range of rows in the state covariance matrix
 	void zeroRows(float (&cov_mat)[_k_num_states][_k_num_states], uint8_t first, uint8_t last);

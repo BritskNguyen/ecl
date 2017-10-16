@@ -210,6 +210,18 @@ bool Ekf::initialiseFilter()
 		}
 	}
 
+		// Count the number of uwb measurements received, mq
+	if (_uwb_buffer.pop_first_older_than(_imu_sample_delayed.time_us, &_uwb_sample_delayed)) {
+		if ((_uwb_counter == 0) && (_uwb_sample_delayed.time_us != 0)) {
+			// initialise the counter
+			_uwb_counter = 1;
+
+		} else if ((_uwb_counter != 0) && (_uwb_sample_delayed.time_us != 0)) {
+			// increment the sample count
+			_uwb_counter ++;
+		}
+	}
+
 	// set the default height source from the adjustable parameter
 	if (_hgt_counter == 0) {
 		_primary_hgt_source = _params.vdist_sensor_type;

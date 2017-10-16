@@ -176,6 +176,8 @@ public:
 
 	//set mocap vicon data mq
 	void setMocapData(uint64_t time_usec, mocap_message *mocap);
+	//mq
+	void setUwbData(uint64_t time_usec, uwb_message *uwb);	
 
 	// return a address to the parameters struct
 	// in order to give access to the application
@@ -338,6 +340,7 @@ protected:
 	dragSample _drag_sample_delayed{};
 	dragSample _drag_down_sampled{};	// down sampled drag specific force data (filter prediction rate -> observation rate)
 	mocapSample _mocap_sample_delayed{};	//mq
+	uwbSample _uwb_sample_delayed{};	//mq
 
 	// Used by the multi-rotor specific drag force fusion
 	uint8_t _drag_sample_count{0};	// number of drag specific force samples assumulated at the filter prediction rate
@@ -399,6 +402,7 @@ protected:
 	RingBuffer<outputVert> _output_vert_buffer;
 	RingBuffer<dragSample> _drag_buffer;
 	RingBuffer<mocapSample> _mocap_buffer;	//mq
+	RingBuffer<uwbSample> _uwb_buffer;	//mq
 
 	uint64_t _time_last_imu{0};	// timestamp of last imu sample in microseconds
 	uint64_t _time_last_gps{0};	// timestamp of last gps measurement in microseconds
@@ -409,6 +413,7 @@ protected:
 	uint64_t _time_last_ext_vision{0}; // timestamp of last external vision measurement in microseconds
 	uint64_t _time_last_optflow{0};
 	uint64_t _time_last_mocap{0}; //mq
+	uint64_t _time_last_uwb{0};	//mq
 
 	fault_status_u _fault_status{};
 

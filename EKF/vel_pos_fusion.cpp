@@ -325,3 +325,159 @@ void Ekf::fuseVelPosHeight()
 		}
 	}
 }
+
+
+void Ekf::fuseUwbDistance()		//mq
+{
+	//bool fuse_map[6] = {}; // map of booleans true when [VN,VE,VD,PN,PE,PD] observations are available
+	//bool innov_check_pass_map[6] = {}; // true when innovations consistency checks pass for [VN,VE,VD,PN,PE,PD] observations
+	//float R[6] = {}; // observation variances for [VN,VE,VD,PN,PE,PD]
+	//float gate_size[6] = {}; // innovation consistency check gate sizes for [VN,VE,VD,PN,PE,PD] observations
+	float Kfusion[24] = {}; // Kalman gain vector for any single observation - sequential fusion is used
+
+	if (_fuse_dist) {
+		//fuse_map[3] = fuse_map[4] = fuse_map[5] = true;
+		// calculate innovations, innovations gate sizes and observation variances
+		float q0 = _state.quat_nominal(0);
+	    float q1 = _state.quat_nominal(1);
+	    float q2 = _state.quat_nominal(2);
+	    float q3 = _state.quat_nominal(3);
+
+	    Matrix3f DCM;
+
+	    DCM(0,0) = 1 - 2*(q2*q2 + q3*q3); //= -1 + 2*(q0*q0 + q1*q1);
+	    DCM(0,1) = 2*(q1*q2 - q0*q3);
+	    DCM(0,2) = 2*(q1*q3 + q0*q2);
+
+	    DCM(1,0) = 2*(q1*q2 + q0*q3);
+	    DCM(1,1) = 1 - 2*(q1*q1 + q3*q3); //= -1 + 2*(q0*q0 + q2*q2);
+	    DCM(1,2) = 2*(q2*q3 - q0*q1);
+
+	    DCM(2,0) = 2*(q1*q3 - q0*q2);
+	    DCM(2,1) = 2*(q2*q3 + q0*q1);
+	    DCM(2,2) = 1 - 2*(q1*q1 + q2*q2); //= -1 + 2*(q0*q0 + q3*q3);
+
+	    float pAX = _uwb_sample_delayed.uwbAntBody(0); 
+	    float pAY = _uwb_sample_delayed.uwbAntBody(1);  
+	    float pAZ = _uwb_sample_delayed.uwbAntBody(2); 
+
+	    float pAx = DCM(0,0)*pAX + DCM(0,1)*pAY + DCM(0,2)*pAZ;
+	    float pAy = DCM(1,0)*pAX + DCM(1,1)*pAY + DCM(1,2)*pAZ;
+	    float pAz = DCM(2,0)*pAX + DCM(2,1)*pAY + DCM(2,2)*pAZ;
+
+    	float pA_pa[3] = {_state.pos(0) + pAx - _uwb_sample_delayed.uwbancNED(0),
+                      		_state.pos(1) + pAy - _uwb_sample_delayed.uwbancNED(1),
+                      		_state.pos(2) + pAz - _uwb_sample_delayed.uwbancNED(2)};
+
+    	float d_hat = sqrtf(pA_pa[0]*pA_pa[0] + pA_pa[1]*pA_pa[1] + pA_pa[2]*pA_pa[2]);
+
+	    float H_Q[4] = {
+	                     2*( (-q3*pAY + q2*pAZ)*pA_pa[0] + (q3*pAX - q1*pAZ)*pA_pa[1] + (-q2*pAX + q1*pAY)*pA_pa[2] ) / d_hat,
+	                     2*( ( q2*pAY + q3*pAZ)*pA_pa[0] + (q2*pAX - q0*pAZ)*pA_pa[1] + ( q3*pAX + q0*pAY)*pA_pa[2] ) / d_hat,
+	                     2*( ( q1*pAY + q0*pAZ)*pA_pa[0] + (q1*pAX + q3*pAZ)*pA_pa[1] + (-q0*pAX + q3*pAY)*pA_pa[2] ) / d_hat,
+	                     2*( (-q0*pAY + q1*pAZ)*pA_pa[0] + (q0*pAX + q2*pAZ)*pA_pa[1] + ( q1*pAX + q2*pAY)*pA_pa[2] ) / d_hat
+	                   };
+
+	    float H_P[3] = {pA_pa[0]/d_hat, pA_pa[1]/d_hat, pA_pa[2]/d_hat};
+
+	    //distance innovation
+	    float distInnov = _uwb_sample_delayed.uwbDist - d_hat;
+
+	 //    //observation variance
+	 //    R[3] = R[4] = R[5] = 0.05f;	//uwb uncertainty, need to determine
+
+		// // convert North position noise to variance
+		// R[3] = R[3] * R[3];
+		// R[4] = R[4] * R[4];
+		// R[5] = R[5] * R[5];
+
+	    //gate_size[3] = gate_size[4] = gate_size[5] = fmaxf(_params.uwb_innov_gate, 1.0f);
+
+	    float uwbdistSigma = 0.4472f;
+		// compute the innovation variance SK = HPH + R
+        float varInnovDist = sq(uwbdistSigma)
+
+                        // Quaternion
+                        + H_Q[0]*(H_Q[0]*P[0][0] + H_Q[1]*P[1][0] + H_Q[2]*P[2][0] + H_Q[3]*P[3][0]
+                                                 + H_P[0]*P[7][0] + H_P[1]*P[8][0] + H_P[1]*P[9][0])
+
+                        + H_Q[1]*(H_Q[0]*P[0][1] + H_Q[1]*P[1][1] + H_Q[2]*P[2][1] + H_Q[3]*P[3][1]
+                                                 + H_P[0]*P[7][1] + H_P[1]*P[8][1] + H_P[1]*P[9][1])
+
+                        + H_Q[2]*(H_Q[0]*P[0][2] + H_Q[1]*P[1][2] + H_Q[2]*P[2][2] + H_Q[3]*P[3][2]
+                                                 + H_P[0]*P[7][2] + H_P[1]*P[8][2] + H_P[1]*P[9][2])
+
+                        + H_Q[3]*(H_Q[0]*P[0][3] + H_Q[1]*P[1][3] + H_Q[2]*P[2][3] + H_Q[3]*P[3][3]
+                                                 + H_P[0]*P[7][3] + H_P[1]*P[8][3] + H_P[1]*P[9][3])
+
+                        //Positional
+                        + H_P[0]*(H_Q[0]*P[0][7] + H_Q[1]*P[1][7] + H_Q[2]*P[2][7] + H_Q[3]*P[3][7]
+                                                 + H_P[0]*P[7][7] + H_P[1]*P[8][7] + H_P[2]*P[9][7])
+
+                        + H_P[1]*(H_Q[0]*P[0][8] + H_Q[1]*P[1][8] + H_Q[2]*P[2][8] + H_Q[3]*P[3][8]
+                                                 + H_P[0]*P[7][8] + H_P[1]*P[8][8] + H_P[2]*P[9][8])
+
+                        + H_P[2]*(H_Q[0]*P[0][9] + H_Q[1]*P[1][9] + H_Q[2]*P[2][9] + H_Q[3]*P[3][9]
+                                                 + H_P[0]*P[7][9] + H_P[1]*P[8][9] + H_P[2]*P[9][9]);
+
+
+        float SK = 1.0/(double)varInnovDist;
+
+        // calculate kalman gain K = PHS, where S = 1/innovation variance
+        for (uint8_t i= 0; i< _k_num_states; i++)
+        {
+            Kfusion[i] = (  P[i][0]*H_Q[0] + P[i][1]*H_Q[1] + P[i][2]*H_Q[2] + P[i][3]*H_Q[3]
+                          + P[i][7]*H_P[0] + P[i][8]*H_P[1] + P[i][9]*H_P[2]
+                         )*SK;
+        }
+
+		// update covarinace matrix via Pnew = (I - KH)P
+		float KHP[_k_num_states][_k_num_states];
+
+		for (uint8_t i= 0; i< _k_num_states; i++)
+        {
+            for (uint8_t j= 0; j< _k_num_states; j++)
+            {
+                KHP[i][j] = Kfusion[i] * (H_Q[0]*P[0][j] + H_Q[1]*P[1][j] + H_Q[2]*P[2][j] + H_Q[3]*P[3][j]
+                                          + H_P[0]*P[7][j] + H_P[1]*P[8][j] + H_P[2]*P[9][j]);
+            }
+        }
+
+        bool healthy = (sq(distInnov) < 3*varInnovDist);
+        if(!healthy)
+        {
+        	_innov_check_fail_status.flags.reject_pos_NE = true;	//seems to be just for recording purposes
+        	_innov_check_fail_status.flags.reject_pos_D = true;
+
+        }
+        else
+        {
+        	_innov_check_fail_status.flags.reject_pos_NE = false;
+        	_innov_check_fail_status.flags.reject_pos_D = false;
+
+			// only apply covariance and state corrrections if healthy
+	        for (uint8_t i= 0; i< _k_num_states; i++)
+	        {
+	            for (uint8_t j= 0; j< _k_num_states; j++)
+	            {
+	                P[i][j] = P[i][j] - KHP[i][j];
+	            }
+	        }
+
+			// correct the covariance marix for gross errors
+			fixCovarianceErrors();
+
+			// apply the state corrections
+	        fuseforUwb(Kfusion, distInnov);
+	        _time_last_pos_fuse = _time_last_imu;	//record the last position fusion time
+
+        }
+
+        _fault_status.flags.bad_pos_N = false;
+        _fault_status.flags.bad_pos_E = false;
+        _fault_status.flags.bad_pos_D = false;	//for now, just set to false whenever fusing uwb
+
+    }
+
+
+}
