@@ -431,7 +431,6 @@ void Ekf::fuseUwbDistance()		//mq
                          )*SK;
         }
 
-		// update covarinace matrix via Pnew = (I - KH)P
 		float KHP[_k_num_states][_k_num_states];
 
 		for (uint8_t i= 0; i< _k_num_states; i++)
@@ -456,6 +455,7 @@ void Ekf::fuseUwbDistance()		//mq
         	_innov_check_fail_status.flags.reject_pos_D = false;
 
 			// only apply covariance and state corrrections if healthy
+			// update covarinace matrix via Pnew = (I - KH)P
 	        for (uint8_t i= 0; i< _k_num_states; i++)
 	        {
 	            for (uint8_t j= 0; j< _k_num_states; j++)
@@ -470,6 +470,7 @@ void Ekf::fuseUwbDistance()		//mq
 			// apply the state corrections
 	        fuseforUwb(Kfusion, distInnov);
 	        _time_last_pos_fuse = _time_last_imu;	//record the last position fusion time
+	        _time_last_hgt_fuse = _time_last_imu;	//record the last altitude fusion time, to prevent height timeout triger
 
         }
 

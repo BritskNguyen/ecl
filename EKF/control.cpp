@@ -381,9 +381,11 @@ void Ekf::controlUwbFusion()		//mq
 				// turn on use of external vision measurements for position and height
 				ECL_INFO("EKF commencing UWB position fusion");
 				// reset the position, height and velocity
+				setControlUwbHeight(); //use uwb for height estimation, disable all others
 				resetPosition();
 				resetVelocity();
 				resetHeight();
+				_state.vel.setZero();
 				_control_status.flags.uwb_dist=true;
 			}
 		}
@@ -1389,7 +1391,7 @@ void Ekf::controlVelPosFusion()
 {
 	// if we aren't doing any aiding, fake GPS measurements at the last known position to constrain drift
 	// Coincide fake measurements with baro data for efficiency with a minimum fusion rate of 5Hz
-	if (!_control_status.flags.gps && !_control_status.flags.opt_flow && !_control_status.flags.ev_pos && !_control_status.flags.mocap_pos
+	if (!_control_status.flags.gps && !_control_status.flags.opt_flow && !_control_status.flags.ev_pos && !_control_status.flags.mocap_pos && !_control_status.flags.uwb_dist //mq
 	    && ((_time_last_imu - _time_last_fake_gps > 2e5) || _fuse_height)) {
 		_fuse_pos = true;
 		_time_last_fake_gps = _time_last_imu;
@@ -1397,9 +1399,10 @@ void Ekf::controlVelPosFusion()
 	}
 
 	// Fuse available NED velocity and position data into the main filter
-	if (_fuse_height || _fuse_pos || _fuse_hor_vel || _fuse_vert_vel) {
+	if ((_fuse_height || _fuse_pos || _fuse_hor_vel || _fuse_vert_vel) && !_fuse_dist) {		//mq if fuse distance, dont fuse position/velocity
 		fuseVelPosHeight();
 		_fuse_hor_vel = _fuse_vert_vel = _fuse_pos = _fuse_height = false;
 
 	}
+	_fuse_dist = false; //mq refresh fuse uwb checker
 }

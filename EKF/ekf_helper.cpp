@@ -112,6 +112,11 @@ bool Ekf::resetPosition()
 		_state.pos(0) = _ev_sample_delayed.posNED(0);
 		_state.pos(1) = _ev_sample_delayed.posNED(1);
 
+	} else if (_control_status.flags.uwb_dist) {		//mq
+		// this reset is only called if we have new uwb data at the fusion time horizon
+		_state.pos(0) = 0.0f;
+		_state.pos(1) = 0.0f;
+
 	} else {
 		return false;
 	}
@@ -243,6 +248,9 @@ void Ekf::resetHeight()
 		} else {
 			_state.pos(2) = _ev_sample_delayed.posNED(2);
 		}
+
+	} else if (_control_status.flags.uwb_dist) {		//mq
+			_state.pos(2) = 0.0f;				//set height to zero
 
 	}
 
@@ -587,6 +595,11 @@ bool Ekf::resetMagHeading(Vector3f &mag_init)
 			Vector3f mag_earth_pred = R_to_earth * _mag_sample_delayed.mag;
 			// the angle of the projection onto the horizontal gives the yaw angle
 			euler312(0) = -atan2f(mag_earth_pred(1), mag_earth_pred(0)) + _mag_declination;
+
+		} else if (_params.fuse_mocap_yaw ) {							//mocap yaw align mq
+			Dcmf R_to_earth_mocap(_mocap_sample_delayed.quat);
+			// calculate the yaw angle for a 312 sequence
+			euler312(0) = atan2f(-R_to_earth_mocap(0, 1), R_to_earth_mocap(1, 1));
 
 		} else {
 			// there is no yaw observation
