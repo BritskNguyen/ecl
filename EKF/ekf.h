@@ -206,6 +206,9 @@ public:
 	// return a bitmask integer that describes which state estimates can be used for flight control
 	void get_ekf_soln_status(uint16_t *status);
 
+	//mq set zero heading value
+	void setZeroHdg(float heading_offset);	
+
 private:
 
 	static constexpr uint8_t _k_num_states{24};
@@ -308,6 +311,8 @@ private:
 	float _delta_time_of{0.0f};		// time in sec that _imu_del_ang_of was accumulated over
 
 	float _mag_declination{0.0f};		// magnetic declination used by reset and fusion functions (rad)
+	float _mag_zero_hdg_init_value{0.0f};	//mq, for zero heading initialisation
+	uint64_t _hdg_enter_time{0};	// mq to record the zero heading init entering time
 
 	// output predictor states
 	Vector3f _delta_angle_corr;	// delta angle correction vector

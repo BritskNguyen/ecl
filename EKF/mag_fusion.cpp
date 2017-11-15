@@ -469,7 +469,7 @@ void Ekf::fuseHeading()
 			// rotate the magnetometer measurements into earth frame using a zero yaw angle
 			mag_earth_pred = R_to_earth * _mag_sample_delayed.mag;
 			// the angle of the projection onto the horizontal gives the yaw angle
-			measured_hdg = -atan2f(mag_earth_pred(1), mag_earth_pred(0)) + _mag_declination;
+			measured_hdg = -atan2f(mag_earth_pred(1), mag_earth_pred(0)) + _mag_declination + _mag_zero_hdg_init_value;		//mq
 		} else if (_control_status.flags.ev_yaw) {
 			// convert the observed quaternion to a rotation matrix
 			Dcmf R_to_earth_ev(_ev_sample_delayed.quat);	// transformation matrix from body to world frame
@@ -552,7 +552,7 @@ void Ekf::fuseHeading()
 			// rotate the magnetometer measurements into earth frame using a zero yaw angle
 			mag_earth_pred = R_to_earth * _mag_sample_delayed.mag;
 			// the angle of the projection onto the horizontal gives the yaw angle
-			measured_hdg = -atan2f(mag_earth_pred(1), mag_earth_pred(0)) + _mag_declination;
+			measured_hdg = -atan2f(mag_earth_pred(1), mag_earth_pred(0)) + _mag_declination + _mag_zero_hdg_init_value;	//mq added zero heading initialisation
 		} else if (_control_status.flags.ev_yaw) {
 			// convert the observed quaternion to a rotation matrix
 			Dcmf R_to_earth_ev(_ev_sample_delayed.quat);	// transformation matrix from body to world frame
@@ -671,6 +671,7 @@ void Ekf::fuseHeading()
 			// constrain the innovation to the maximum set by the gate
 			float gate_limit = sqrtf((sq(math::max(_params.heading_innov_gate, 1.0f)) * _heading_innov_var));
 			_heading_innov = math::constrain(_heading_innov, -gate_limit, gate_limit);
+			//							ECL_WARN("EKF innovation constrained");		//mq for testing only
 		}
 
 	} else {
@@ -713,6 +714,7 @@ void Ekf::fuseHeading()
 
 			// update individual measurement health status
 			_fault_status.flags.bad_mag_hdg = true;
+			//							ECL_WARN("EKF unhealthy covariance");	//mq for testing only
 
 		}
 	}
@@ -724,6 +726,22 @@ void Ekf::fuseHeading()
 			for (unsigned column = 0; column < _k_num_states; column++) {
 				P[row][column] = P[row][column] - KHP[row][column];
 			}
+		}
+
+		if ((_hdg_enter_time != 0) && (_time_last_imu - _hdg_enter_time < 1e6))	//mq set kalman gain to very large to allow fast converging when zero heading just come in
+		{
+			// for (uint8_t row = 22; row <= 23; row++) {
+			// 	Kfusion[row] *= 5.0f;
+			// 	}
+
+			// for (unsigned row = 0; row < _k_num_states; row++) {
+			// 	for (unsigned column = 0; column < _k_num_states; column++) {
+			// 		P[row][column] *= 10;
+			// 	}
+			// }
+			initialiseCovariance();
+			//return;
+
 		}
 
 		// correct the covariance marix for gross errors
@@ -811,7 +829,7 @@ void Ekf::fuseDeclination()
 	Kfusion[23] = -t4*t13*(P[23][16]*magE-P[23][17]*magN);
 
 	// calculate innovation and constrain
-	float innovation = atan2f(magE , magN) - _mag_declination;
+	float innovation = atan2f(magE , magN) - _mag_declination - _mag_zero_hdg_init_value;	//mq added zero heading initialisation
 	innovation = math::constrain(innovation, -0.5f, 0.5f);
 
 	// apply covariance correction via P_new = (I -K*H)*P
@@ -867,4 +885,11 @@ void Ekf::fuseDeclination()
 		fuse(Kfusion, innovation);
 
 	}
+}
+
+void Ekf::setZeroHdg(float heading_offset)		//mq
+{
+	_mag_zero_hdg_init_value = wrap_pi(heading_offset);
+	_hdg_enter_time = _time_last_imu;	//mq
+	return;
 }

@@ -177,7 +177,7 @@ public:
 	//set mocap vicon data mq
 	void setMocapData(uint64_t time_usec, mocap_message *mocap);
 	//mq
-	void setUwbData(uint64_t time_usec, uwb_message *uwb);	
+	void setUwbData(uint64_t time_usec, uwb_message *uwb);		
 
 	// return a address to the parameters struct
 	// in order to give access to the application
