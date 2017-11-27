@@ -303,7 +303,9 @@ struct parameters {
 
 	// mocap fusion mq
 	float mocap_innov_gate{5.0f};
+	float mocap_pos_noise{0.01};	//mocap noise mq
 	float uwb_innov_gate{5.0f};
+	float uwb_pos_noise{0.05};		//uwb noise mq
 
 	// optical flow fusion
 	float flow_noise{0.15f};		// observation noise for optical flow LOS rate measurements (rad/sec)

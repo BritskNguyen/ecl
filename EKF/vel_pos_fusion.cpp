@@ -109,7 +109,7 @@ void Ekf::fuseVelPosHeight()
 
 		} else if (_control_status.flags.mocap_pos) {		//mq
 			// we are using external vision measurements
-			R[3] = fmaxf(0.005f, 0.01f);
+			R[3] = fmaxf(_params.mocap_pos_noise, 0.01f);
 			_vel_pos_innov[3] = _state.pos(0) - _mocap_sample_delayed.posNED(0);
 			_vel_pos_innov[4] = _state.pos(1) - _mocap_sample_delayed.posNED(1);
 
@@ -393,9 +393,9 @@ void Ekf::fuseUwbDistance()		//mq
 
 	    //gate_size[3] = gate_size[4] = gate_size[5] = fmaxf(_params.uwb_innov_gate, 1.0f);
 
-	    float uwbdistSigma = 0.4472f;
+	    float uwbdistSigma = _params.uwb_pos_noise;	
 		// compute the innovation variance SK = HPH + R
-        float varInnovDist = sq(uwbdistSigma)
+        float varInnovDist = uwbdistSigma
 
                         // Quaternion
                         + H_Q[0]*(H_Q[0]*P[0][0] + H_Q[1]*P[1][0] + H_Q[2]*P[2][0] + H_Q[3]*P[3][0]
