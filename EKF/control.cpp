@@ -1399,7 +1399,7 @@ void Ekf::controlVelPosFusion()
 	}
 
 	// Fuse available NED velocity and position data into the main filter
-	if ((_fuse_height || _fuse_pos || _fuse_hor_vel || _fuse_vert_vel) && !_fuse_dist) {		//mq if fuse distance, dont fuse position/velocity
+	if ((_fuse_height || _fuse_pos || _fuse_hor_vel || _fuse_vert_vel)) {//&& !_fuse_dist) {		//mq if fuse distance, dont fuse position/velocity
 		fuseVelPosHeight();
 		_fuse_hor_vel = _fuse_vert_vel = _fuse_pos = _fuse_height = false;
 

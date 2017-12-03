@@ -1112,10 +1112,19 @@ void Ekf::fuseforUwb(float *K, float innovation)	//mq
 
 	_state.quat_nominal.normalize();
 
-	for (unsigned i = 0; i < 3; i++) {			//not updating z vel and pos yet mq
-		_state.vel(i) = _state.vel(i) + K[i + 4] * innovation;
-		_state.pos(i) = _state.pos(i) + K[i + 7] * innovation;
-	}
+	if (_params.uwb_not_upd_z)
+
+		for (unsigned i = 0; i < 2; i++) {			//not updating z vel and pos yet mq
+			_state.vel(i) = _state.vel(i) + K[i + 4] * innovation;
+			_state.pos(i) = _state.pos(i) + K[i + 7] * innovation;
+		}
+
+	else
+
+		for (unsigned i = 0; i < 3; i++) {
+			_state.vel(i) = _state.vel(i) + K[i + 4] * innovation;
+			_state.pos(i) = _state.pos(i) + K[i + 7] * innovation;
+		}
 
 	for (unsigned i = 0; i < 3; i++) {
 		_state.gyro_bias(i) = _state.gyro_bias(i) + K[i + 10] * innovation;
@@ -1461,7 +1470,7 @@ void Ekf::setControlUwbHeight()		//mq
 
 	_control_status.flags.baro_hgt = false;
 	_control_status.flags.gps_hgt = false;
-	_control_status.flags.rng_hgt = false;
+	_control_status.flags.rng_hgt = true;
 	_control_status.flags.ev_hgt = false;	//mq
 
 }

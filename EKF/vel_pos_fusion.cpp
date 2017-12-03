@@ -365,6 +365,8 @@ void Ekf::fuseUwbDistance()		//mq
 	    float pAy = DCM(1,0)*pAX + DCM(1,1)*pAY + DCM(1,2)*pAZ;
 	    float pAz = DCM(2,0)*pAX + DCM(2,1)*pAY + DCM(2,2)*pAZ;
 
+
+
     	float pA_pa[3] = {_state.pos(0) + pAx - _uwb_sample_delayed.uwbancNED(0),
                       		_state.pos(1) + pAy - _uwb_sample_delayed.uwbancNED(1),
                       		_state.pos(2) + pAz - _uwb_sample_delayed.uwbancNED(2)};
@@ -393,9 +395,8 @@ void Ekf::fuseUwbDistance()		//mq
 
 	    //gate_size[3] = gate_size[4] = gate_size[5] = fmaxf(_params.uwb_innov_gate, 1.0f);
 
-	    float uwbdistSigma = _params.uwb_pos_noise;	
 		// compute the innovation variance SK = HPH + R
-        float varInnovDist = uwbdistSigma
+        float varInnovDist = _params.uwb_dist_noise
 
                         // Quaternion
                         + H_Q[0]*(H_Q[0]*P[0][0] + H_Q[1]*P[1][0] + H_Q[2]*P[2][0] + H_Q[3]*P[3][0]
@@ -423,6 +424,7 @@ void Ekf::fuseUwbDistance()		//mq
 
         float SK = 1.0/(double)varInnovDist;
 
+
         // calculate kalman gain K = PHS, where S = 1/innovation variance
         for (uint8_t i= 0; i< _k_num_states; i++)
         {
@@ -430,6 +432,7 @@ void Ekf::fuseUwbDistance()		//mq
                           + P[i][7]*H_P[0] + P[i][8]*H_P[1] + P[i][9]*H_P[2]
                          )*SK;
         }
+
 
 		float KHP[_k_num_states][_k_num_states];
 
