@@ -1468,7 +1468,7 @@ void Ekf::setControlUwbHeight()		//mq
 {
 	_control_status.flags.mocap_hgt = false;
 
-	_control_status.flags.baro_hgt = false;
+	_control_status.flags.baro_hgt = true;
 	_control_status.flags.gps_hgt = false;
 	_control_status.flags.rng_hgt = true;
 	_control_status.flags.ev_hgt = false;	//mq
