@@ -307,6 +307,8 @@ struct parameters {
 	float uwb_innov_gate{5.0f};
 	float uwb_dist_noise{0.05};		//uwb noise mq
 	int32_t uwb_not_upd_z{false};		//uwb noise mq
+	float uwb_init_x{0.0f};		//mq
+	float uwb_init_y{0.0f};		//mq
 
 
 	// optical flow fusion

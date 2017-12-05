@@ -114,8 +114,8 @@ bool Ekf::resetPosition()
 
 	} else if (_control_status.flags.uwb_dist) {		//mq
 		// this reset is only called if we have new uwb data at the fusion time horizon
-		_state.pos(0) = 0.0f;
-		_state.pos(1) = 0.0f;
+		_state.pos(0) = _params.uwb_init_x;
+		_state.pos(1) = _params.uwb_init_y;
 
 	} else {
 		return false;
