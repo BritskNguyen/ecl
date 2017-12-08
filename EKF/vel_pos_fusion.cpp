@@ -446,7 +446,7 @@ void Ekf::fuseUwbDistance()		//mq
         }
 
         bool healthy = (sq(distInnov) < 3*varInnovDist);
-        if(!healthy)
+        if(!healthy && (_time_last_imu - _time_first_uwb > 2e6))	//always fuse readings for the first 2 seconds since uwb reading come in
         {
         	_innov_check_fail_status.flags.reject_pos_NE = true;	//seems to be just for recording purposes
         	_innov_check_fail_status.flags.reject_pos_D = true;

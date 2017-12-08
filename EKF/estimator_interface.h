@@ -414,6 +414,7 @@ protected:
 	uint64_t _time_last_optflow{0};
 	uint64_t _time_last_mocap{0}; //mq
 	uint64_t _time_last_uwb{0};	//mq
+	uint64_t _time_first_uwb{0};	//mq
 
 	fault_status_u _fault_status{};
 

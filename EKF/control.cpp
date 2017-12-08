@@ -380,6 +380,7 @@ void Ekf::controlUwbFusion()		//mq
 			if (_time_last_imu - _time_last_uwb < 2 * UWB_MAX_INTERVAL) {
 				// turn on use of external vision measurements for position and height
 				ECL_INFO("EKF commencing UWB position fusion");
+				_time_first_uwb = _time_last_uwb;
 				// reset the position, height and velocity
 				setControlUwbHeight(); //use uwb for height estimation, disable all others
 				resetPosition();
